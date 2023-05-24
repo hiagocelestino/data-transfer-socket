@@ -16,27 +16,52 @@ void usage(int argc, char **argv){
     exit(EXIT_FAILURE);
 }
 
-int write_file(int sock){
-    FILE *fp;
+int get_filename(char *data, char *filename){
+    int i = 0;
+    for(i = 0; i < strlen(data); i++){
+        if ( data[i] != ':') {
+            filename[i] = data[i];
+        } else {
+            filename[i] = '\0';
+            break;
+        }
+    }
+    return i + 1;
+}
+
+int write_file(int sock, int *is_file_already){
     int c_data;
-    char *filename = "fp_recebido.txt";
     char buff[BUFSZ];
 
-    fp = fopen(filename, "w");
-    if(fp == NULL){
-        return -1;
-    }
-
+    int is_get_filename = 0;
+    char path[100] = "./servidor/"; // LEMBRAR DE APAGAR ESSA PARTE
+    FILE *fp;
     while(1){
         c_data = recv(sock, buff, BUFSZ, 0);
+        if (is_get_filename == 0) {
+            char filename[50];
+            int size_filename = get_filename(buff, filename);
+            is_get_filename = 1;
+            strcat(path, filename);
+            if (access(path, F_OK) == 0) {
+                *is_file_already = 1;
+            }
+            fp = fopen(path, "w+");
+            strcpy(buff, buff + size_filename);
+        }
+
         if (c_data <= 0){
-            fclose(fp);
             break;
         }
         printf("%s\n", buff);
+        if (strstr(buff, "\\end")){
+            buff[strlen(buff) - 4] = '\0';
+            printf("é o fim: %s\n", buff);
+        }
         fprintf(fp, "%s", buff);
         bzero(buff, BUFSZ);
     }
+    fclose(fp);
     return 0;
 }
 
@@ -88,28 +113,21 @@ int main(int argc, char **argv){
         char caddrstr[BUFSZ];
         addrtostr(caddr, caddrstr, BUFSZ);
         printf("[log] connection from %s\n", caddrstr);
-        
-        // char buf[BUFSZ];
-        // memset(buf, 0, BUFSIZ);
-        // size_t count = recv(csock, buf, BUFSZ, 0);
-        // Implementar a leituar parcial dos dados, igual no envio do cliente
+
         char response[BUFSZ];
-        if(write_file(csock) == -1){
+        int is_file_already = 0;
+        if(write_file(csock, &is_file_already) == -1){
             strcpy(response, "error receiving file [nomearquivo]");
         }else{
             strcpy(response, "file [nomearquivo] received");
+        }
+        if(is_file_already == 1){
+            strcpy(response, "file [nomearquivo] overwritten");
         }
         size_t count = send(csock, response, strlen(response)+1, 0);
         if (count != strlen(response)+1){
             logexit("send");
         }
-        printf("[msg] %s, %d bytes: %s\n", caddrstr, (int)count, response);
-
-        // sprintf(buf, "remote endpoint: %.500s\n", caddrstr);
-        // count = send(csock, buf, strlen(buf)+1, 0);
-        // if (count != strlen(buf)+1){
-        //     logexit("send");
-        // }
         close(csock);
     }
 

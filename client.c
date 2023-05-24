@@ -37,10 +37,22 @@ FILE *get_file(char *filename){
     return fp;
 }
 
-void send_file(FILE *fp, int sock, char *filename){
+FILE *create_file_to_send(char *filename, FILE *fp){
+    char ch;
+    FILE *tmp_file = fopen("tmp.txt", "w+");
+    fwrite(filename, 1, sizeof(filename) + 1, tmp_file);
+    fwrite(":", 1, sizeof(":") - 1, tmp_file);
+    
+    while( ( ch = fgetc(fp) ) != EOF ){
+      fputc(ch, tmp_file);
+    }
+    fwrite("\\end", 1, sizeof("\\end"), tmp_file);
+    rewind(tmp_file);
+    return tmp_file;
+}
+
+void send_file(FILE *fp, int sock){
     char data[BUFSZ] = {0};
-    fseek(fp, 0, SEEK_SET);
-    fwrite(filename, 1, sizeof(filename), fp);
 
     while(fread(data, sizeof(fp), BUFSZ, fp) != 0){
         printf("%s", data);
@@ -49,20 +61,9 @@ void send_file(FILE *fp, int sock, char *filename){
         }
         bzero(data, BUFSZ);
     }
-
-    // while(fgets(data, BUFSZ, fp) != NULL){
-    //     if(send(sock, data, sizeof(data), 0) == -1){
-    //         printf("Error in send data.\n");
-    //     }
-    //     bzero(data, BUFSZ);
-    // }
-    char response[BUFSZ];
-    // recv(sock, response, BUFSZ, 0);
-    printf("%s\n", response);
 }
 
 void filter_option_client(int socket, char *option, int *is_file_selected, char *filename){
-    // TODO: Esta printando tudo
     option[strlen(option) - 1] = '\0';
     if (strstr(option, "select file")){
         char tr[20];
@@ -80,7 +81,8 @@ void filter_option_client(int socket, char *option, int *is_file_selected, char 
             printf("no file selected!\n");
         }else{
             FILE *fp = get_file(filename);
-            send_file(fp, socket, filename);
+            FILE *fp_to_send = create_file_to_send(filename, fp);
+            send_file(fp_to_send, socket);
         }
     }
     
