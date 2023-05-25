@@ -29,9 +29,9 @@ int get_filename(char *data, char *filename){
     return i + 1;
 }
 
-int write_file(int sock, int *is_file_already){
+int receive_message(int sock, int *is_file_already, int *close_connection, char *filename){
     int c_data;
-    char buff[BUFSZ];
+    char buff[BUFSZ] = {0};
 
     int is_get_filename = 0;
     char path[100] = "./servidor/"; // LEMBRAR DE APAGAR ESSA PARTE
@@ -39,7 +39,6 @@ int write_file(int sock, int *is_file_already){
     while(1){
         c_data = recv(sock, buff, BUFSZ, 0);
         if (is_get_filename == 0) {
-            char filename[50];
             int size_filename = get_filename(buff, filename);
             is_get_filename = 1;
             strcat(path, filename);
@@ -53,11 +52,10 @@ int write_file(int sock, int *is_file_already){
         if (c_data <= 0){
             break;
         }
-        printf("%s\n", buff);
         if (strstr(buff, "\\end")){
-            buff[strlen(buff) - 4] = '\0';
-            printf("é o fim: %s\n", buff);
+            buff[strlen(buff) - 4] = '\0';  
         }
+        
         fprintf(fp, "%s", buff);
         bzero(buff, BUFSZ);
     }
@@ -114,21 +112,22 @@ int main(int argc, char **argv){
         addrtostr(caddr, caddrstr, BUFSZ);
         printf("[log] connection from %s\n", caddrstr);
 
-        char response[BUFSZ];
         int is_file_already = 0;
-        if(write_file(csock, &is_file_already) == -1){
-            strcpy(response, "error receiving file [nomearquivo]");
-        }else{
-            strcpy(response, "file [nomearquivo] received");
+        int close_connection = 0;
+        char filename[BUFSIZ];
+        int r_msg = receive_message(csock, &is_file_already, &close_connection, filename);
+        if(r_msg == -1){
+            printf("error receiving file [%s]", filename);
         }
-        if(is_file_already == 1){
-            strcpy(response, "file [nomearquivo] overwritten");
+        if (r_msg == 0 && is_file_already == 0){
+            printf("file [%s] received", filename);
         }
-        size_t count = send(csock, response, strlen(response)+1, 0);
-        if (count != strlen(response)+1){
-            logexit("send");
+        if(r_msg == 0 && is_file_already == 1){
+            printf("file [%s] overwritten", filename);
         }
+        
         close(csock);
+        printf("connection closed");
     }
 
     exit(EXIT_SUCCESS);

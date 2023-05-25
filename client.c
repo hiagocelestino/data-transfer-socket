@@ -55,7 +55,6 @@ void send_file(FILE *fp, int sock){
     char data[BUFSZ] = {0};
 
     while(fread(data, sizeof(fp), BUFSZ, fp) != 0){
-        printf("%s", data);
         if(send(sock, data, sizeof(data), 0) == -1){
             printf("Error in send data.\n");
         }
@@ -85,7 +84,6 @@ void filter_option_client(int socket, char *option, int *is_file_selected, char 
             send_file(fp_to_send, socket);
         }
     }
-    
 }
 
 int main(int argc, char **argv){
@@ -116,15 +114,12 @@ int main(int argc, char **argv){
 
     char buff[BUFSZ];
     memset(buff, 0, BUFSZ);
-
-
-    printf("[command]> ");
     
     int is_file_selected = 0;
     char filename[50];
     while(1){
         fgets(buff, BUFSZ-1, stdin);
-        if(strstr(buff, "exit")){
+        if (strstr(buff, "exit")){
             break;
         }
         filter_option_client(s, buff, &is_file_selected, filename);
